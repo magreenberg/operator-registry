@@ -1155,3 +1155,45 @@ func (s *sqlLoader) rmStrandedBundles(tx *sql.Tx) ([]string, error) {
 
 	return strandedBundles, nil
 }
+
+func (s *sqlLoader) Sanitize() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
+	deleteOperatorBundles, err := tx.Prepare("DELETE FROM operatorbundle WHERE name not in (select operatorbundle_name from channel_entry)")
+	if err != nil {
+		return err
+	}
+	defer deleteOperatorBundles.Close()
+
+	if _, err := deleteOperatorBundles.Exec(); err != nil {
+		return err
+	}
+
+	deleteAPIProvider, err := tx.Prepare("DELETE FROM api_provider WHERE operatorbundle_name not in (select operatorbundle_name from channel_entry)")
+	if err != nil {
+		return err
+	}
+	defer deleteAPIProvider.Close()
+
+	if _, err := deleteAPIProvider.Exec(); err != nil {
+		return err
+	}
+
+	deleteProperties, err := tx.Prepare("DELETE FROM properties WHERE operatorbundle_name not in (select operatorbundle_name from channel_entry)")
+	if err != nil {
+		return err
+	}
+	defer deleteProperties.Close()
+
+	if _, err := deleteProperties.Exec(); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

@@ -318,6 +318,17 @@ func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) err
 		}
 	}
 
+	// sanitize dangling entries from database
+	cleaner := sqlite.NewSQLSanitizerForDanglingRecords(dbLoader)
+	if err := cleaner.SanitizeDanglingRecords(); err != nil {
+		err = fmt.Errorf("error deleting dangling records from database: %s", err)
+		if !request.Permissive {
+			logrus.WithError(err).Fatal("permissive mode disabled")
+			return err
+		}
+		logrus.WithError(err).Warn("permissive mode enabled")
+	}
+
 	return nil
 }
 
